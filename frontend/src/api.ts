@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Question } from "./types";
+import type { Question, KnowledgeGraph } from "./types";
 
 const API = axios.create({
   baseURL: "http://localhost:8000", // меняется при деплое
@@ -19,4 +19,10 @@ export const sendAnswer = async (
     chosen_answer,
   });
   return res.data;
+};
+
+export const getGraphBySession = async (sessionId: string): Promise<KnowledgeGraph> => {
+  const res = await fetch(`http://localhost:8000/graph/${sessionId}`);
+  if (!res.ok) throw new Error("Failed to fetch graph");
+  return await res.json();
 };

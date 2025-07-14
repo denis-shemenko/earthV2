@@ -31,19 +31,53 @@ llmGemini = ChatGoogleGenerativeAI(
 parser = JsonOutputParser()
 
 # Шаблон промпта
+system_prompt_template = """
+Ты — генератор интеллектуальных викторин. На вход ты получаешь тему и должен сгенерировать интересный, 
+краткий вопрос на эту тему, с 4 вариантами ответа.
+
+Формат вывода должен строго соответствовать следующей JSON-структуре:
+
+  "question": "строка — сам вопрос",
+  "options": [
+    "text": "вариант ответа 1", "isCorrect": true/false "",
+    "text": "вариант ответа 2", "isCorrect": true/false "",
+    "text": "вариант ответа 3", "isCorrect": true/false "",
+    "text": "вариант ответа 4", "isCorrect": true/false ""
+  ]
+
+⚠️ Только один из вариантов должен иметь "isCorrect": true.
+
+Пример:
+
+  "question": "Кто первым высадился на Луне?",
+  "options": [
+    "text": "Нил Армстронг", "isCorrect": true "",
+    "text": "Юрий Гагарин", "isCorrect": false "",
+    "text": "Базз Олдрин", "isCorrect": false "",
+    "text": "Майкл Коллинз", "isCorrect": false ""
+  ]
+
+Тема: {topic}
+"""
 prompt = PromptTemplate(
     input_variables=["topic"],
-    template=(
-        "You are an AI-powered quiz generator for a curiosity-driven game.\n"
-        "Generate a single multiple-choice question on the topic: '{topic}'.\n"
-        "Return exactly 4 answer options — one correct and three plausible but incorrect ones.\n"
-        "Respond ONLY in strict JSON format with the following fields:\n"
-        "  - question: string\n"
-        "  - options: array of 4 strings\n"
-        "  - correct_answer: string\n"
-        "Do not include any explanations or extra text."
-    )
+    template=system_prompt_template
 )
+
+# English without OPTIONS!
+# prompt = PromptTemplate(
+#     input_variables=["topic"],
+#     template=(
+#         "You are an AI-powered quiz generator for a curiosity-driven game.\n"
+#         "Generate a single multiple-choice question on the topic: '{topic}'.\n"
+#         "Return exactly 4 answer options — one correct and three plausible but incorrect ones.\n"
+#         "Respond ONLY in strict JSON format with the following fields:\n"
+#         "  - question: string\n"
+#         "  - options: array of 4 strings\n"
+#         "  - correct_answer: string\n"
+#         "Do not include any explanations or extra text."
+#     )
+# )
 
 # Сборка цепочки
 chain = prompt | llmGemini | parser
