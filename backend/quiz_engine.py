@@ -17,12 +17,13 @@ llm = ChatOpenAI(
 )
 
 llmGemini = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     google_api_key=os.getenv("GOOGLE_API_KEY"),
     temperature=0,
     max_tokens=None,
     timeout=None,
     max_retries=2,
+    thinking_budget=0,
     # other params...
 )
 
