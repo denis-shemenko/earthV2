@@ -1,0 +1,42 @@
+# Byte-compiled / optimized / compiled files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+
+# Distribution / packaging
+.Python
+build/
+dist/
+develop-eggs/
+eggs/
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Local configuration files
+.env
+.flaskenv
+instance/
+config.py  # Or any other local configuration file containing sensitive data
+
+# Database
+*.sqlite3
+*.db
+*.db-journal
+
+# Logs and temporary files
+*.log
+tmp/
