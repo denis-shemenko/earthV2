@@ -12,11 +12,13 @@ export const fetchStart = async (): Promise<Question> => {
 
 export const sendAnswer = async (
   session_id: string,
-  chosen_answer: string
+  chosen_answer: string,
+  question_text: string
 ): Promise<Question> => {
   const res = await API.post<Question>("/answer", {
     session_id,
     chosen_answer,
+    question_text,
   });
   return res.data;
 };

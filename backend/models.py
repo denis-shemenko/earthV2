@@ -7,6 +7,7 @@ class QuestionRequest(BaseModel):
 class AnswerRequest(BaseModel):
     session_id: str
     chosen_answer: str
+    question_text: str
 
 class QuestionOption(BaseModel):
     text: str

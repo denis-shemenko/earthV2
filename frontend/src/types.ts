@@ -10,6 +10,8 @@ export interface GraphNode {
   label: string;
   type: "home" | "question" | "answer" | "topic" | "session";
   isCurrent?: boolean;
+  question: string;
+  selected: boolean;
 }
 
 export interface GraphLink {

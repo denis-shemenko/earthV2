@@ -3,7 +3,7 @@ import ForceGraph2D from "react-force-graph-2d";
 import type { GraphNode, GraphLink, KnowledgeGraph } from "../types";
 import { getGraphBySession } from "../api";
 
-const SESSION_ID = "2eb46e83-b95c-4971-b2a3-34823e1a8cc3"; // потом возьмем из глобального состояния или storage
+const SESSION_ID = "d5657a67-943f-41f4-8a73-202c03ac93c4"; // потом возьмем из глобального состояния или storage
 
 export default function GraphView() {
   const [graphData, setGraphData] = useState<KnowledgeGraph | null>(null);
@@ -16,7 +16,8 @@ export default function GraphView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_id: SESSION_ID,
-          chosen_answer: node.label // или node.id, если так храним
+          chosen_answer: node.label, // или node.id, если так храним
+          question_text: node.question,
         })
       })
         .then((res) => res.json())
@@ -32,10 +33,9 @@ export default function GraphView() {
   }, []);
 
   const nodeColor = (node: GraphNode) => {
-    if (node.type === "home") return "#00BFFF";
-    if (node.type === "answer") return "#48BB78"; // зелёные планеты
-    if (node.isCurrent) return "#FFA500";
-    return "#6C63FF";
+    if (node.type === "question") return "#FFA500";
+    if (node.type === "answer") return node.selected ? "#48BB78" : "#CBD5E0";
+    return "#999";
   };
   
   const nodeSize = (node: GraphNode) => {
@@ -49,6 +49,14 @@ export default function GraphView() {
     if (node.type === "home") return "🌍 Дом";
     return node.label;
   };
+
+  const linkColor = (link: GraphLink) => {
+    if (link.label === "SELECTED") return "#38A169"; // ярко-зелёный
+    if (link.label === "NEXT") return "#4299E1";     // синий
+    return "#A0AEC0";                                // серый
+  };
+  
+  const linkWidth = (link: GraphLink) => (link.label === "SELECTED" ? 3 : 1.5);
 
   return (
     <div className="h-screen bg-gray-900 text-white">
@@ -73,7 +81,9 @@ export default function GraphView() {
           }}
           linkDirectionalArrowLength={4}
           linkDirectionalArrowRelPos={1}
-          linkAutoColorBy="type"
+          //linkAutoColorBy="type"
+          linkWidth={linkWidth}
+          linkColor={linkColor}
           onNodeClick={handleNodeClick}
         />
       )}

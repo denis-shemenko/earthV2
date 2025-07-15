@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from models import QuestionRequest, AnswerRequest, QuestionResponse
 from quiz_engine import generate_question
 from sessions import create_session, update_session
-from graph import save_question_path, save_user_answer, get_graph_with_options 
+from graph import store_first_question, store_selected_answer_and_next, get_graph_with_options 
 #get_session_graph, get_session_graph_simplified
 
 app = FastAPI()
@@ -25,10 +25,10 @@ def start_game():
     session_id = create_session(topic)
     q = generate_question(topic)
 
-    save_question_path(
+    store_first_question(
         session_id=session_id,
         question_text=q["question"],
-        answer_options=q["options"]
+        answers=q["options"]
     )
 
     return QuestionResponse(**q, session_id=session_id)
@@ -36,24 +36,18 @@ def start_game():
 @app.post("/answer", response_model=QuestionResponse)
 def answer(req: AnswerRequest):
     user_id = "user-001"
-    last_topic = "История"  # позже: достаём из сессии
-    
-    update_session(req.session_id, last_topic, req.chosen_answer)
+
+    # last_topic = "История"  # позже: достаём из сессии    
+    # update_session(req.session_id, last_topic, req.chosen_answer)
+
     next_topic = req.chosen_answer
     q = generate_question(next_topic)
 
-    # Сохраняем в графовую БД Neo4j
-    save_question_path(
-        session_id=req.session_id,
-        question_text=req.chosen_answer,
-        answer_options=q["options"]
-    )
-
-    save_user_answer(
-        session_id=req.session_id,
-        answer_text=req.chosen_answer,
+    store_selected_answer_and_next(
+        question_text=req.question_text,
+        selected_answer_text=req.chosen_answer,
         next_question_text=q["question"],
-        next_answers=q["options"]
+        answer_options=q["options"]
     )
 
     return QuestionResponse(**q, session_id=req.session_id)
