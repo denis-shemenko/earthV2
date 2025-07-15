@@ -33,7 +33,12 @@ export default function GraphView() {
 
   const nodeColor = (node: GraphNode) => {
     if (node.type === "home") return "#00BFFF";
-    if (node.type === "answer") return "#48BB78"; // зелёные планеты
+    if (node.type === "answer") {
+      if (node.isSelected) {
+        return node.isCorrect ? "#22c55e" : "#ef4444"; // зелёный / красный
+      }
+      return "#a1a1aa"; // серый для не выбранных
+    }
     if (node.isCurrent) return "#FFA500";
     return "#6C63FF";
   };

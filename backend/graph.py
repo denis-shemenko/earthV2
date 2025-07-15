@@ -55,15 +55,15 @@ def _store_question_with_answers(tx, session_id, question_text, answer_options):
         )
     """, session_id=session_id, question=question_text, options=answer_options)
 
-def save_user_answer(session_id: str, answer_text: str, next_question_text: str, next_answers: List[QuestionOption]):
+def save_user_answer(session_id: str, answer_text: str, is_correct: bool, next_question_text: str, next_answers: List[QuestionOption]):
     with driver.session() as session:
-        session.execute_write(_store_user_answer, session_id, answer_text, next_question_text, next_answers)
+        session.execute_write(_store_user_answer, session_id, answer_text, is_correct, next_question_text, next_answers)
 
-def _store_user_answer(tx, session_id, answer_text, next_question_text, next_answers):
-    tx.run("""
+def _store_user_answer(tx, session_id, answer_text, is_correct, next_question_text, next_answers):
+        tx.run("""
         MATCH (s:Session {id: $session_id})
         MATCH (a:Answer {text: $answer_text})
-        MERGE (s)-[:SELECTED]->(a)
+        CREATE (s)-[:SELECTED {isCorrect: $is_correct}]->(a)
         MERGE (q:Question {text: $next_question})
         MERGE (a)-[:NEXT]->(q)
         FOREACH (opt IN $next_options |
@@ -71,7 +71,8 @@ def _store_user_answer(tx, session_id, answer_text, next_question_text, next_ans
             SET ans.correct = opt.isCorrect
             MERGE (q)-[:HAS_OPTION]->(ans)
         )
-    """, session_id=session_id, answer_text=answer_text, next_question=next_question_text, next_options=next_answers)
+    """, session_id=session_id, answer_text=answer_text,
+         next_question=next_question_text, next_options=next_answers)
 
 # LATEST WAY. With Options!
 def get_graph_with_options(session_id: str) -> dict:
@@ -82,8 +83,8 @@ def _build_graph_with_options(tx, session_id: str):
     query = """
     MATCH (s:Session {id: $session_id})-[:SELECTED*0..]->(a:Answer)-[:NEXT]->(q:Question)
     OPTIONAL MATCH (q)-[:HAS_OPTION]->(opt:Answer)
-    RETURN q, opt
-    ORDER BY q.text
+    OPTIONAL MATCH (s)-[sel:SELECTED]->(opt)
+    RETURN q, opt, sel.isCorrect as isCorrectSelected, opt.correct as isCorrect
     """
 
     result = tx.run(query, session_id=session_id)
@@ -95,6 +96,9 @@ def _build_graph_with_options(tx, session_id: str):
     for record in result:
         q = record["q"]
         opt = record["opt"]
+        is_correct = record["isCorrect"]
+        is_selected = record["isCorrectSelected"] is not None
+        is_correct_selected = record["isCorrectSelected"]
 
         qid = q.id
         if qid not in nodes:
@@ -113,7 +117,10 @@ def _build_graph_with_options(tx, session_id: str):
             nodes[oid] = {
                 "id": oid,
                 "label": opt.get("text"),
-                "type": "answer"
+                "type": "answer",
+                "isCorrect": is_correct,
+                "isSelected": is_selected,
+                "isCorrectSelected": is_correct_selected
             }
             links.append({"source": qid, "target": oid, "label": "HAS_OPTION"})
 

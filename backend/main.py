@@ -1,3 +1,4 @@
+from logging import debug
 import uuid
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -43,15 +44,22 @@ def answer(req: AnswerRequest):
     q = generate_question(next_topic)
 
     # Сохраняем в графовую БД Neo4j
-    save_question_path(
-        session_id=req.session_id,
-        question_text=req.chosen_answer,
-        answer_options=q["options"]
-    )
+    # save_question_path(
+    #     session_id=req.session_id,
+    #     question_text=req.chosen_answer,
+    #     answer_options=q["options"]
+    # )
+
+    #debug("RESPONSE FROM LLM: %(message)s", q)
+
+    # найти правильный ли был выбранный ответ
+    chosen_option = next(opt for opt in q["options"] if opt.text == req.chosen_answer)
+    is_correct = chosen_option.isCorrect
 
     save_user_answer(
         session_id=req.session_id,
         answer_text=req.chosen_answer,
+        is_correct=is_correct,
         next_question_text=q["question"],
         next_answers=q["options"]
     )
