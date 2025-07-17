@@ -77,7 +77,12 @@ export default function GraphView() {
 
     const nodeColor = (node: GraphNode) => {
         if (node.type === "question") return "#FFA500";
-        if (node.type === "answer") return node.selected ? "#48BB78" : "#CBD5E0";
+        if (node.type === "answer") {
+            if (node.selected && node.correct === false) return "#F56565"; // Red for incorrect selected
+            if (node.selected && node.correct === true) return "#48BB78";  // Green for correct selected
+            if (node.selected) return "#48BB78"; // fallback
+            return "#CBD5E0";
+        }
         return "#999";
     };
 
@@ -104,7 +109,7 @@ export default function GraphView() {
     console.log("Current graphData:", graphData);
 
     return (
-        <div className="relative h-screen w-full bg-black overflow-hidden">
+        <div className="relative h-screen w-full bg-black overflow-hidden"> 
             {stars.map(i => (
                 <div key={i} className="star absolute"></div>
             ))}
@@ -113,23 +118,39 @@ export default function GraphView() {
                     <ForceGraph2D
                         ref={fgRef}
                         graphData={graphData}
-                        nodeLabel={nodeLabel}
+                        nodeLabel={(node: GraphNode) => node.label} // full text for tooltip
                         nodeAutoColorBy="type"
                         nodeCanvasObject={(node, ctx, globalScale) => {
-                            const fontSize = 10 / globalScale;
-                            ctx.font = `${fontSize}px Sans-Serif`;
+                            let label = typeof node.label === "string" && node.label.length > 30
+                                ? node.label.slice(0, 30) + "…"
+                                : node.label;
 
                             ctx.fillStyle = nodeColor(node as GraphNode);
                             ctx.beginPath();
                             ctx.arc(node.x!, node.y!, nodeSize(node as GraphNode), 0, 2 * Math.PI, false);
                             ctx.fill();
 
-                            ctx.fillStyle = "white";
-                            ctx.fillText(nodeLabel(node as GraphNode), node.x! + 10, node.y! + 4);
+                            ctx.fillStyle = "rgb(204, 204, 255, 0.3)";
+                            const fontSize = 14 / globalScale;
+                            ctx.font = `${fontSize}px Sans-Serif`;
+                            const textWidth = ctx.measureText(label).width;
+                            const padding = fontSize * 0.2;
+                            const bckgWidth = textWidth + padding;
+                            const bckgHeight = fontSize + padding;
+                            ctx.fillRect(
+                                node.x! - bckgWidth / 2,
+                                node.y! - bckgHeight / 2,
+                                bckgWidth,
+                                bckgHeight
+                            );
+
+                            ctx.fillStyle = "rgb(5, 89, 255)";
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(label, node.x!, node.y!);
                         }}
                         linkDirectionalArrowLength={4}
                         linkDirectionalArrowRelPos={1}
-                        //linkAutoColorBy="type"
                         linkWidth={linkWidth}
                         linkColor={linkColor}
                         onNodeClick={handleNodeClick}

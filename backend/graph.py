@@ -146,7 +146,7 @@ def _build_graph_with_options(tx, session_id: str):
             if q and q.id not in nodes:
                 nodes[q.id] = {
                     "id": q.id,
-                    "label": q.get("text")[:50] + "...",
+                    "label": q.get("text"),
                     "type": "question"
                 }
             if a:
@@ -156,7 +156,8 @@ def _build_graph_with_options(tx, session_id: str):
                         "label": a.get("text"),
                         "type": "answer",
                         "selected": sa and a.id == sa.id,
-                        "question": q.get("text")
+                        "question": q.get("text"),
+                        "correct": a.get("correct")
                     }
                 links.append({
                     "source": q.id,
@@ -174,7 +175,7 @@ def _build_graph_with_options(tx, session_id: str):
                 if next_q.id not in nodes:
                     nodes[next_q.id] = {
                         "id": next_q.id,
-                        "label": next_q.get("text")[:50] + "...",
+                        "label": next_q.get("text"),
                         "type": "question"
                     }
                 links.append({
