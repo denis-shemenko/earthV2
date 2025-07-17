@@ -1,9 +1,7 @@
-import uuid
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from langchain_core.output_parsers import json
-from models import AnswerRequest, QuestionResponse, QuestionOption
+from models import AnswerRequest, QuestionResponse, QuestionOption, FirstQuestionRequest
 from quiz_engine import generate_question
 from sessions import create_session
 from graph import start_session_with_topics, store_first_question, store_selected_answer_and_next, get_graph_with_options 
@@ -19,20 +17,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/start", response_model=QuestionResponse)
-def start_game():
-    topic = "История"  # или случайный выбор
-    session_id = create_session()
-    q = generate_question(topic)
-
-    store_first_question(
-        session_id=session_id,
-        question_text=q["question"],
-        answers=q["options"]
-    )
-
-    return QuestionResponse(**q, session_id=session_id)
-
 @app.post("/start-session", response_model=QuestionResponse)
 def start_session():
     session_id = create_session()
@@ -46,16 +30,14 @@ def start_session():
     )
 
 @app.post("/first-question", response_model=QuestionResponse)
-def generate_first_question(session_id: str, topic: str):
-    q = generate_question(topic)
-
+def generate_first_question(req: FirstQuestionRequest):
+    q = generate_question(req.topic)
     store_first_question(
-        session_id=session_id,
+        session_id=req.session_id,
         question_text=q["question"],
         answers=q["options"]
     )
-
-    return QuestionResponse(**q, session_id=session_id)
+    return QuestionResponse(**q, session_id=req.session_id)
 
 @app.post("/answer", response_model=QuestionResponse)
 def answer(req: AnswerRequest):
