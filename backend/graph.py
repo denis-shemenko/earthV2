@@ -15,6 +15,20 @@ if not all([NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD]):
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
 
+def start_session_with_topics(session_id: str, topics: List[str]):
+    with driver.session() as session:
+        session.execute_write(_start_session_with_topics, session_id, topics)
+
+def _start_session_with_topics(tx, session_id: str, topics: List[str]):
+    for i, name in enumerate(topics):
+        answer_id = f"{session_id}_topic_{i}"
+        tx.run("""
+            MERGE (s:Session {id: $session_id})
+            MERGE (a:Answer {text: $name, id: $answer_id})
+            SET a.topic = true
+            MERGE (s)-[:HAS_OPTION]->(a)
+        """, session_id=session_id, name=name, answer_id=answer_id)
+
 def store_first_question(session_id: str, question_text: str, answers: List[QuestionOption]):
     with driver.session() as session:
         session.execute_write(_store_first_question, session_id, question_text, answers)
@@ -59,33 +73,24 @@ def _store_selected_answer_and_next(tx, question_text, selected_answer_text, nex
          next_question=next_question_text,
          answers=next_answers)
 
-
-def save_user_answer(session_id: str, answer_text: str, next_question_text: str, next_answers: List[QuestionOption]):
-    with driver.session() as session:
-        session.execute_write(_store_user_answer, session_id, answer_text, next_question_text, next_answers)
-
-def _store_user_answer(tx, session_id, answer_text, next_question_text, next_answers):
-    tx.run("""
-        MATCH (s:Session {id: $session_id})
-        MATCH (a:Answer {text: $answer_text})
-        MERGE (s)-[:SELECTED]->(a)
-        MERGE (q:Question {text: $next_question})
-        MERGE (a)-[:NEXT]->(q)
-        FOREACH (opt IN $next_options |
-            MERGE (ans:Answer {text: opt.text})
-            SET ans.correct = opt.isCorrect
-            MERGE (q)-[:HAS_OPTION]->(ans)
-        )
-    """, session_id=session_id, answer_text=answer_text, next_question=next_question_text, next_options=next_answers)
-
 # LATEST WAY. With Options!
 def get_graph_with_options(session_id: str) -> dict:
     with driver.session() as session:
         return session.execute_read(_build_graph_with_options, session_id)
 
 def _build_graph_with_options(tx, session_id: str):
-    query = """
-    MATCH (s:Session {id: $session_id})-[:NEXT]->(q1:Question)
+    # First query: Get session and topic nodes
+    topic_query = """
+    MATCH (s:Session {id: $session_id})
+    OPTIONAL MATCH (s)-[:HAS_OPTION]->(topic_answer:Answer)
+    WHERE topic_answer.topic = true
+    RETURN s, topic_answer
+    """
+    
+    # Second query: Get questions and their answers (only if they exist)
+    question_query = """
+    MATCH (s:Session {id: $session_id})
+    OPTIONAL MATCH (s)-[:NEXT]->(q1:Question)
     OPTIONAL MATCH path=(q1)-[:SELECTED|NEXT*0..]->(q:Question)
     WITH COLLECT(DISTINCT q) AS questions
     UNWIND questions AS q
@@ -94,17 +99,65 @@ def _build_graph_with_options(tx, session_id: str):
     OPTIONAL MATCH (a)-[:NEXT]->(next_q:Question)
     RETURN q, a, sa, next_q
     """
-
-    result = tx.run(query, session_id=session_id)
+    
+    print(f"DEBUG: Query executed for session_id: {session_id}")
+    
+    # Execute topic query
+    topic_result = tx.run(topic_query, session_id=session_id)
+    print(f"DEBUG: Topic query returned {len(list(topic_result))} records")
+    topic_result = tx.run(topic_query, session_id=session_id)  # Reset iterator
+    
+    # Execute question query
+    question_result = tx.run(question_query, session_id=session_id)
+    print(f"DEBUG: Question query returned {len(list(question_result))} records")
+    question_result = tx.run(question_query, session_id=session_id)  # Reset iterator
 
     nodes = {}
     links = []
 
-    for record in result:
+    # Process topic results
+    for record in topic_result:
+        s = record["s"]
+        topic_answer = record["topic_answer"]
+
+        print(f"DEBUG: Processing topic record - s: {s}, topic_answer: {topic_answer}")
+
+        # Add session node (home node)
+        if s and s.id not in nodes:
+            print(f"DEBUG: Adding session node: {s.id}")
+            nodes[s.id] = {
+                "id": s.id,
+                "label": "ЗЕМЛЯ",
+                "type": "home",
+                "question": "",
+                "selected": False
+            }
+
+        # Add topic answer nodes
+        if topic_answer and topic_answer.id not in nodes:
+            print(f"DEBUG: Adding topic answer node: {topic_answer.id} with text: {topic_answer.get('text')}")
+            nodes[topic_answer.id] = {
+                "id": topic_answer.id,
+                "label": topic_answer.get("text"),
+                "type": "answer",
+                "selected": False,
+                "question": "Выбор темы",
+                "topic": True  # Add topic property
+            }
+            links.append({
+                "source": s.id,
+                "target": topic_answer.id,
+                "label": "HAS_OPTION"
+            })
+
+    # Process question results
+    for record in question_result:
         q = record["q"]
         a = record["a"]
         sa = record["sa"]
         next_q = record["next_q"]
+
+        print(f"DEBUG: Processing question record - q: {q}, a: {a}")
 
         if q and q.id not in nodes:
             nodes[q.id] = {
@@ -151,106 +204,5 @@ def _build_graph_with_options(tx, session_id: str):
 
     return {
         "nodes": list(nodes.values()),
-        "links": links
-    }
-
-# First approach
-def get_session_graph(session_id: str) -> dict:
-    with driver.session() as session:
-        return session.execute_read(_fetch_graph_data, session_id)
-
-def _fetch_graph_data(tx, session_id: str):
-    query = """
-    MATCH (s:Session {id: $session_id})-[:SELECTED]->(a:Answer)-[:NEXT]->(q:Question)
-    RETURN s, a, q
-    """
-
-    result = tx.run(query, session_id=session_id)
-
-    nodes = {
-        "start": {
-            "id": "start",
-            "label": "🌍 Земля",
-            "type": "start"
-        }
-    }
-    links = []
-
-    for record in result:
-        s = record["s"]
-        a = record["a"]
-        q = record["q"]
-
-        if a:
-            nodes[a.id] = {
-                "id": a.id,
-                "label": a.get("text"),
-                "type": "answer"
-            }
-        if q:
-            nodes[q.id] = {
-                "id": q.id,
-                "label": q.get("text"),
-                "type": "question"
-            }
-
-        if a and q:
-            links.append({"source": a.id, "target": q.id, "label": "NEXT"})
-
-    # Стартовая точка ведёт к первому answer (если есть)
-    if result.peek():
-        first_a = result.peek()["a"]
-        if first_a:
-            links.append({"source": "start", "target": first_a.id, "label": "START"})
-
-    return {
-        "nodes": list(nodes.values()),
-        "links": links
-    }
-
-# Simplified way
-def get_session_graph_simplified(session_id: str) -> dict:
-    with driver.session() as session:
-        return session.execute_read(_fetch_simplified_graph, session_id)
-
-def _fetch_simplified_graph(tx, session_id: str):
-    query = """
-    MATCH (s:Session {id: $session_id})-[:SELECTED]->(a:Answer)-[:NEXT]->(q:Question)
-    WITH collect(q) AS questions
-    RETURN questions
-    """
-    result = tx.run(query, session_id=session_id)
-
-    questions = []
-    for record in result:
-        q_list = record["questions"]
-        for i, q in enumerate(q_list):
-            questions.append({
-                "id": q.id,
-                "label": q.get("text")[:40] + "...",
-                "type": "question",
-                "topic": q.get("correct"),
-                "isCurrent": (i == len(q_list) - 1)  # последний — текущий
-            })
-
-    nodes = [{
-        "id": "home",
-        "label": "🌍 Дом",
-        "type": "home"
-    }] + questions
-
-    links = []
-    if questions:
-        links.append({"source": "home", "target": questions[0]["id"], "label": "LAUNCH"})
-
-        for i in range(len(questions) - 1):
-            links.append({
-                "source": questions[i]["id"],
-                "target": questions[i+1]["id"],
-                "label": "NEXT"
-            })
-
-    return {
-        "nodes": nodes,
         "links": links
     }

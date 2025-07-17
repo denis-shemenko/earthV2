@@ -6,19 +6,17 @@ const API = axios.create({
 });
 
 export const fetchStart = async (): Promise<Question> => {
-  const res = await API.get<Question>("/start");
+  const res = await API.post<Question>("/start-session");
   return res.data;
 };
 
-export const sendAnswer = async (
+export const postFirstQuestion = async (
   session_id: string,
-  chosen_answer: string,
-  question_text: string
+  topic: string,
 ): Promise<Question> => {
-  const res = await API.post<Question>("/answer", {
+  const res = await API.post<Question>("/first-question", {
     session_id,
-    chosen_answer,
-    question_text,
+    topic
   });
   return res.data;
 };

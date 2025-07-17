@@ -5,6 +5,11 @@ export interface Question {
     session_id: string;
   }
 
+  export interface QuestionOption {
+    text: string[];
+    is_correct: boolean;
+  }
+
 export interface GraphNode {
   id: string;
   label: string;
@@ -12,6 +17,7 @@ export interface GraphNode {
   isCurrent?: boolean;
   question: string;
   selected: boolean;
+  topic?: boolean; // Add optional topic property
 }
 
 export interface GraphLink {

@@ -1,23 +1,56 @@
 import { useEffect, useState, useRef } from "react";
 import ForceGraph2D from "react-force-graph-2d";
-import type { GraphNode, GraphLink, KnowledgeGraph } from "../types";
-import { getGraphBySession } from "../api";
+import type { GraphNode, GraphLink, KnowledgeGraph, QuestionOption } from "../types";
+import { fetchStart, getGraphBySession, postFirstQuestion } from "../api";
 
-const SESSION_ID = "d5657a67-943f-41f4-8a73-202c03ac93c4"; // потом возьмем из глобального состояния или storage
+//const SESSION_ID = "d5657a67-943f-41f4-8a73-202c03ac93c4"; // потом возьмем из глобального состояния или storage
 
 export default function GraphView() {
+    const [stars, setStars] = useState<number[]>([]);
     const [graphData, setGraphData] = useState<KnowledgeGraph | null>(null);
+    const [sessionId, setSessionId] = useState<string>("");
     const fgRef = useRef<any>(null);
 
-    const [stars, setStars] = useState<number[]>([]);
-
     const handleNodeClick = (node: GraphNode) => {
-        if (node.type === "answer") {
+        // Стартовая тема
+        if (node.type === "answer" && node.topic) {
+            const topic = node.label;
+            postFirstQuestion(sessionId, topic).then(({ question, options }) => {
+                // Генерируем ноды и связи вручную:
+                const qNode: GraphNode = {
+                    id: `q_${Date.now()}`,
+                    label: question,
+                    type: "question",
+                    question: question,
+                    selected: false
+                };
+
+                const answerNodes: GraphNode[] = (options as any[]).map((a, index) => ({
+                    id: `a_${Date.now()}_${index}`,
+                    label: a.text || a, // Handle both QuestionOption and string
+                    type: "answer",
+                    question: "",
+                    selected: false
+                }));
+
+                const links: GraphLink[] = [
+                    ...answerNodes.map((a) => ({ source: qNode.id, target: a.id, label: "HAS_OPTION" })),
+                    { source: node.id, target: qNode.id, label: "NEXT" }
+                ];
+
+                setGraphData(prev => prev ? ({
+                    nodes: [...prev.nodes, qNode, ...answerNodes],
+                    links: [...prev.links, ...links]
+                }) : null);
+            });
+
+            return;
+        } else if (node.type === "answer") {
             fetch("http://localhost:8000/answer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    session_id: SESSION_ID,
+                    session_id: sessionId,
                     chosen_answer: node.label, // или node.id, если так храним
                     question_text: node.question,
                 })
@@ -25,20 +58,33 @@ export default function GraphView() {
                 .then((res) => res.json())
                 .then(() => {
                     // перезагрузить граф
-                    getGraphBySession(SESSION_ID).then(setGraphData);
+                    getGraphBySession(sessionId).then(setGraphData);
                 });
         }
     };
 
-    // 1. Set stars count on mount
+    // 1. Set stars count and start session on mount
     useEffect(() => {
         const starCount = Math.floor(Math.random() * 70) + 30;
         setStars(Array.from({ length: starCount }, (_, i) => i));
 
-        getGraphBySession(SESSION_ID).then(setGraphData);
+        fetchStart().then(({session_id}) => setSessionId(session_id));
     }, []);
 
-    // 2. Manipulate DOM after stars are rendered
+    // 2. Fetch graph when sessionId is available
+    useEffect(() => {
+        if (sessionId) {
+            console.log("Fetching graph for sessionId:", sessionId);
+            getGraphBySession(sessionId).then(data => {
+                console.log("Graph data received:", data);
+                setGraphData(data);
+            }).catch(error => {
+                console.error("Error fetching graph:", error);
+            });
+        }
+    }, [sessionId]);
+
+    // 3. Manipulate DOM after stars are rendered
     useEffect(() => {
         if (stars.length === 0) return;
         const starsEls = document.querySelectorAll('.star');
@@ -78,6 +124,8 @@ export default function GraphView() {
     };
 
     const linkWidth = (link: GraphLink) => (link.label === "SELECTED" ? 3 : 1.5);
+
+    console.log("Current graphData:", graphData);
 
     return (
         <div className="relative h-screen w-full bg-black overflow-hidden">

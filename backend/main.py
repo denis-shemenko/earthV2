@@ -2,11 +2,11 @@ import uuid
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from models import QuestionRequest, AnswerRequest, QuestionResponse
+from langchain_core.output_parsers import json
+from models import AnswerRequest, QuestionResponse, QuestionOption
 from quiz_engine import generate_question
-from sessions import create_session, update_session
-from graph import store_first_question, store_selected_answer_and_next, get_graph_with_options 
-#get_session_graph, get_session_graph_simplified
+from sessions import create_session
+from graph import start_session_with_topics, store_first_question, store_selected_answer_and_next, get_graph_with_options 
 
 app = FastAPI()
 
@@ -22,7 +22,31 @@ app.add_middleware(
 @app.get("/start", response_model=QuestionResponse)
 def start_game():
     topic = "История"  # или случайный выбор
-    session_id = create_session(topic)
+    session_id = create_session()
+    q = generate_question(topic)
+
+    store_first_question(
+        session_id=session_id,
+        question_text=q["question"],
+        answers=q["options"]
+    )
+
+    return QuestionResponse(**q, session_id=session_id)
+
+@app.post("/start-session", response_model=QuestionResponse)
+def start_session():
+    session_id = create_session()
+    topics = ["Физика", "История", "География", "Животные", "Кино", "Искусство"]
+    start_session_with_topics(session_id, topics)
+
+    return QuestionResponse(
+        question="Выбор темы", 
+        options=[QuestionOption(text=topic, isCorrect=False) for topic in topics], 
+        session_id=session_id
+    )
+
+@app.post("/first-question", response_model=QuestionResponse)
+def generate_first_question(session_id: str, topic: str):
     q = generate_question(topic)
 
     store_first_question(
@@ -59,11 +83,3 @@ def get_graph_with_answers(session_id: str):
         return JSONResponse(content=data)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
-
-# @app.get("/graph/{session_id}")
-# def get_graph(session_id: str):
-#     try:
-#         data = get_session_graph_simplified(session_id)
-#         return JSONResponse(content=data)
-#     except Exception as e:
-#         return JSONResponse(status_code=500, content={"error": str(e)})
