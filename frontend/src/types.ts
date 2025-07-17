@@ -19,6 +19,8 @@ export interface GraphNode {
   selected: boolean;
   topic?: boolean; // Add optional topic property
   correct?: boolean;
+  x?: number;
+  y?: number;
 }
 
 export interface GraphLink {

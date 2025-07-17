@@ -1,0 +1,14 @@
+@keyframes floatScore {
+    0% {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -150%) scale(1.4);
+    }
+  }
+  
+  .animate-float-score {
+    animation: floatScore 2s ease-out forwards;
+  }
