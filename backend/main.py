@@ -1,10 +1,11 @@
+import logging
 from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from models import AnswerRequest, QuestionResponse, QuestionOption, FirstQuestionRequest
-from quiz_engine import generate_question
+from quiz_engine import generate_question, generate_first_question
 from sessions import create_session
-from graph import start_session_with_topics, store_first_question, store_selected_answer_and_next, get_graph_with_options 
+from graph import start_session_with_topics, store_first_question, store_selected_answer_and_next, get_graph_with_options, get_last_N_answers
 
 app = FastAPI()
 
@@ -30,8 +31,8 @@ def start_session():
     )
 
 @app.post("/first-question", response_model=QuestionResponse)
-def generate_first_question(req: FirstQuestionRequest):
-    q = generate_question(req.topic)
+def create_first_question(req: FirstQuestionRequest):
+    q = generate_first_question(req.topic)
     store_first_question(
         session_id=req.session_id,
         question_text=q["question"],
@@ -47,7 +48,13 @@ def answer(req: AnswerRequest):
     # update_session(req.session_id, last_topic, req.chosen_answer)
 
     next_topic = req.chosen_answer
-    q = generate_question(next_topic)
+    prev_answers = get_last_N_answers(req.session_id)["answers"]
+
+    print(f'prev answers were: {prev_answers}')
+
+    q = generate_question(next_topic, previous_answers=prev_answers)
+
+    #print(f'Got question from LLM: {q}')
 
     store_selected_answer_and_next(
         question_text=req.question_text,

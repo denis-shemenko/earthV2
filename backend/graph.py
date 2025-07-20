@@ -188,3 +188,29 @@ def _build_graph_with_options(tx, session_id: str):
         "nodes": list(nodes.values()),
         "links": links
     }
+
+def get_last_N_answers(session_id: str) -> dict:
+    with driver.session() as session:
+        return session.execute_read(_get_last_N_answers, session_id)
+
+def _get_last_N_answers(tx, session_id: str):
+    #TODO: make Variable for Limit - LIMIT $limit
+    ###(the missing property name is: timestamp)} 
+
+    last_answers_query = """
+    MATCH (s:Session)-[]-()-[sel:SELECTED]->(a:Answer)
+    RETURN a.text AS answer_text
+    ORDER BY sel.timestamp DESC
+    LIMIT 5
+    """
+
+    last_answers_result = tx.run(last_answers_query, session_id=session_id)
+
+    answers = []
+
+    for record in last_answers_result:
+        answers.append(record["answer_text"])
+
+    return {
+        "answers": answers
+    }
