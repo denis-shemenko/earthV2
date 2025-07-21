@@ -50,7 +50,7 @@ def answer(req: AnswerRequest):
     next_topic = req.chosen_answer
     prev_answers = get_last_N_answers(req.session_id)["answers"]
 
-    print(f'prev answers were: {prev_answers}')
+    #print(f'prev answers were: {prev_answers}')
 
     q = generate_question(next_topic, previous_answers=prev_answers)
 

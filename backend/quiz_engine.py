@@ -8,6 +8,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 
+from langchain.globals import set_verbose
+
 load_dotenv()
 
 # Конфигурация модели
@@ -35,7 +37,13 @@ next_topic_prompt = PromptTemplate(
     input_variables=["previous_answer", "avoid"],
     template="""
 Ты создаешь уникальный путь знаний для игрока. У игрока предыдущий ответ был: "{previous_answer}".
-Твоя задача — придумать одну новую, логически связанную, но отличающуюся тему, чтобы игрок пошел дальше.
+Твоя задача — придумать одну новую, логически связанную, но при этом из другой области знаний, 
+или которая требует креативного, ассоциативного прыжка.
+Это должен быть не очевидный, но интересный прыжок между темами, для расширения кругозора игрока.
+
+Примеры таких прыжков:
+- Space -> Greek Mythology (через имена планет)
+- История -> Кулинария (через традиционные блюда эры)
 
 Избегай повторного использования этих тем: {avoid}.
 
@@ -105,20 +113,31 @@ next_question_chain = (
     next_question_prompt 
     | llmGemini 
     | parser
-    #| {"question": RunnablePassthrough()}
 )
 
-# question_generator_chain = SequentialChain(
-#     chains=[next_topic_chain, next_question_chain],
-#     input_variables=["previous_answer", "avoid"],
-#     output_variables=["next_topic", "question_json"],
-#     verbose=True
-# )
+def log_next_topic(inputs):
+    print(f"[DEBUG] Next topic generated: {inputs['next_topic']}")
+    return inputs
+
+def log_next_question_prompt(x):
+    prompt = next_question_prompt.format(
+        next_topic=x["next_topic"],
+        avoid=x["avoid"]
+    )
+    print("[DEBUG] Next question prompt sent to LLM:\n", prompt)
+    return x
+
+#set_verbose(True)
 
 question_generator_chain = (
     RunnablePassthrough.assign(
-        next_topic=next_topic_chain
+        next_topic=lambda x: next_topic_chain.invoke({
+            "previous_answer": x["previous_answer"],
+            "avoid": x["avoid"]
+        }).content
     )
+    #| log_next_topic
+    #| log_next_question_prompt
     | RunnablePassthrough.assign(
         question_json=lambda x: next_question_chain.invoke({
             "next_topic": x["next_topic"],
@@ -134,7 +153,6 @@ def generate_question(topic: str, previous_answers: List[str]) -> dict:
           "previous_answer": topic,
           "avoid": ", ".join(previous_answers)
       })
-      #["question"]
       #result = question_generator_chain.invoke({"previous_answer": topic})
       return result["question_json"]
     except Exception as e:

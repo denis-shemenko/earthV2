@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from neo4j import GraphDatabase
 from typing import List
 from models import QuestionOption
+from datetime import datetime
 
 load_dotenv()
 
@@ -55,10 +56,12 @@ def store_selected_answer_and_next(question_text: str, selected_answer_text: str
             answer_options)
 
 def _store_selected_answer_and_next(tx, question_text, selected_answer_text, next_question_text, next_answers):
+    created_at = datetime.now().timestamp()
+    
     tx.run("""
         MATCH (q1:Question {text: $question_text})
         MATCH (a:Answer {text: $selected_answer})
-        MERGE (q1)-[:SELECTED]->(a)
+        MERGE (q1)-[:SELECTED {timestamp: $created_at}]->(a)
 
         MERGE (q2:Question {text: $next_question})
         MERGE (a)-[:NEXT]->(q2)
@@ -70,6 +73,7 @@ def _store_selected_answer_and_next(tx, question_text, selected_answer_text, nex
         )
     """, question_text=question_text,
          selected_answer=selected_answer_text,
+         created_at=created_at,
          next_question=next_question_text,
          answers=next_answers)
 
@@ -198,7 +202,11 @@ def _get_last_N_answers(tx, session_id: str):
     ###(the missing property name is: timestamp)} 
 
     last_answers_query = """
-    MATCH (s:Session)-[]-()-[sel:SELECTED]->(a:Answer)
+    MATCH (s:Session {id: $session_id})-[:NEXT]->(q1:Question)
+    OPTIONAL MATCH path=(q1)-[:SELECTED|NEXT*0..]->(q:Question)
+    WITH COLLECT(DISTINCT q) AS questions
+    UNWIND questions AS q
+    MATCH (q)-[sel:SELECTED]->(a:Answer)
     RETURN a.text AS answer_text
     ORDER BY sel.timestamp DESC
     LIMIT 5
