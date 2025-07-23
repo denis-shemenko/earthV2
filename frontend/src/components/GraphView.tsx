@@ -65,6 +65,7 @@ export default function GraphView() {
                     session_id: sessionId,
                     chosen_answer: node.label, // или node.id, если так храним
                     question_text: node.question,
+                    is_correct: node.correct
                 })
             })
                 .then((res) => res.json())

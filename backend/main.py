@@ -6,6 +6,7 @@ from models import AnswerRequest, QuestionResponse, QuestionOption, FirstQuestio
 from quiz_engine import generate_question, generate_first_question
 from sessions import create_session
 from graph import start_session_with_topics, store_first_question, store_selected_answer_and_next, get_graph_with_options, get_last_N_answers
+from ship_logic import apply_answer_result, ship_status, init_ship_state
 
 app = FastAPI()
 
@@ -18,6 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+ship_states = {}  # session_id -> ShipState
+
 @app.post("/start-session", response_model=QuestionResponse)
 def start_session():
     session_id = create_session()
@@ -27,7 +30,9 @@ def start_session():
     return QuestionResponse(
         question="Выбор темы", 
         options=[QuestionOption(text=topic, isCorrect=False) for topic in topics], 
-        session_id=session_id
+        session_id=session_id,
+        ship_event=None,
+        ship_status=None
     )
 
 @app.post("/first-question", response_model=QuestionResponse)
@@ -44,8 +49,14 @@ def create_first_question(req: FirstQuestionRequest):
 def answer(req: AnswerRequest):
     user_id = "user-001"
 
-    # last_topic = "История"  # позже: достаём из сессии    
-    # update_session(req.session_id, last_topic, req.chosen_answer)
+    # 1. Получить или создать состояние корабля
+    ship_state = ship_states.get(req.session_id)
+    if not ship_state:
+        ship_state = init_ship_state()
+        ship_states[req.session_id] = ship_state
+
+    # 2. Применить результат к кораблю
+    result = apply_answer_result(ship_state, req.is_correct)
 
     next_topic = req.chosen_answer
     prev_answers = get_last_N_answers(req.session_id)["answers"]
@@ -63,7 +74,14 @@ def answer(req: AnswerRequest):
         answer_options=q["options"]
     )
 
-    return QuestionResponse(**q, session_id=req.session_id)
+    return {
+        "session_id": req.session_id,
+        "ship_event": result,
+        "ship_status": ship_status(ship_state),
+        "question": q["question_json"],
+        "options": q["options"]
+    }
+    #return QuestionResponse(**q, session_id=req.session_id)
 
 @app.get("/graph/{session_id}")
 def get_graph_with_answers(session_id: str):
