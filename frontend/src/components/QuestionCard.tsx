@@ -1,4 +1,3 @@
-import { useState } from "react";
 import classNames from "classnames";
 import type { Question } from "../types";
 

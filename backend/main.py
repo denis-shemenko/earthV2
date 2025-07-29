@@ -43,7 +43,14 @@ def create_first_question(req: FirstQuestionRequest):
         question_text=q["question"],
         answers=q["options"]
     )
-    return QuestionResponse(**q, session_id=req.session_id)
+    #return QuestionResponse(**q, session_id=req.session_id)
+    return {
+        "session_id": req.session_id,
+        "ship_event": None,
+        "ship_status": None,
+        "question": q["question"],
+        "options": q["options"]
+    }
 
 @app.post("/answer", response_model=QuestionResponse)
 def answer(req: AnswerRequest):
@@ -78,7 +85,7 @@ def answer(req: AnswerRequest):
         "session_id": req.session_id,
         "ship_event": result,
         "ship_status": ship_status(ship_state),
-        "question": q["question_json"],
+        "question": q["question"],
         "options": q["options"]
     }
     #return QuestionResponse(**q, session_id=req.session_id)
