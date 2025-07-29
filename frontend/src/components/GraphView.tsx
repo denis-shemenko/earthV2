@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import type { GraphNode, GraphLink, KnowledgeGraph } from "../types";
 import { fetchStart, getGraphBySession, postFirstQuestion } from "../api";
+import type { ShipStatus } from "./ShipHud";
+import ShipHud from "./ShipHud";
 
 //const SESSION_ID = "d5657a67-943f-41f4-8a73-202c03ac93c4"; // потом возьмем из глобального состояния или storage
 
@@ -20,6 +22,7 @@ export default function GraphView() {
     const [questionStartTime, setQuestionStartTime] = useState<number | null>(null);
     const [elapsedTime, setElapsedTime] = useState<number>(0);
     const [floatingScores, setFloatingScores] = useState<FloatingScore[]>([]);
+    const [shipStatus, setShipStatus] = useState<ShipStatus>();
     const fgRef = useRef<any>(null);
 
     const handleNodeClick = (node: GraphNode) => {
@@ -65,9 +68,11 @@ export default function GraphView() {
                     session_id: sessionId,
                     chosen_answer: node.label, // или node.id, если так храним
                     question_text: node.question,
+                    is_correct: node.correct
                 })
             })
                 .then((res) => res.json())
+                .then((res) => setShipStatus(res["ship_status"]))
                 .then(() => {
                     // перезагрузить граф
                     getGraphBySession(sessionId).then(setGraphData);
@@ -179,6 +184,7 @@ export default function GraphView() {
                 <div>Очки: {score}</div>
                 {questionStartTime && <div>⏱ {elapsedTime} сек.</div>}
             </div>
+            {shipStatus && <ShipHud status={shipStatus} />}
             <div className="absolute inset-0 z-10">
                 {graphData && (
                     <ForceGraph2D
