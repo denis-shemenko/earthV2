@@ -1,70 +1,29 @@
-// import { useEffect, useState } from "react";
-// import { fetchStart, sendAnswer } from "./api";
-// import type { Question } from "./types";
-// import QuestionCard from "./components/QuestionCard";
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
-import GraphView from "./components/GraphView";
-//import Game from "./Game"; // старый App с квизом
+import { useState } from "react";
+import GreetingsScreen from "./components/GreetingsScreen";
+import CrewSelectionScreen from "@/components/CrewSelectionScreen";
+import MissionSelectionScreen from "@/components/MissionSelectionScreen";
+import type { CrewMember } from "@/types";
 
 export default function App() {
+  const [captainName, setCaptainName] = useState<string | null>(null);
+  const [crew, setCrew] = useState<CrewMember[] | null>(null);
+  const [missionTopic, setMissionTopic] = useState<string | null>(null);
+
+  const handleStart = (name: string) => {
+    setCaptainName(name);
+  };
+
   return (
-    <Router>
-      <nav className="p-4 bg-gray-800 text-white flex gap-4 justify-center">
-        <Link to="/">🧠 Игра</Link>
-        <Link to="/help">📍 Помощь</Link>
-      </nav>
-      <Routes>
-        <Route path="/" element={<GraphView />} />
-        <Route path="/help" element={<GraphView />} />
-      </Routes>
-    </Router>
+    <>
+      {!captainName ? (
+        <GreetingsScreen onStart={handleStart} />
+      ) : !crew ? (
+        <CrewSelectionScreen onCrewSelected={setCrew} />
+      ) : !missionTopic ? (
+        <MissionSelectionScreen onMissionSelected={setMissionTopic} captain={captainName} crew={crew} />
+      ) : (
+        <div>{/* Step 4 - Arrival at Planet (Trivia Question) */}</div>
+      )}
+    </>
   );
 }
-
-// function App() {
-//   const [question, setQuestion] = useState<Question | null>(null);
-//   const [selected, setSelected] = useState<string | null>(null);
-//   const [disabled, setDisabled] = useState(false);
-
-//   const loadStart = async () => {
-//     const q = await fetchStart();
-//     setQuestion(q);
-//     setSelected(null);
-//     setDisabled(false);
-//   };
-
-//   const handleAnswer = async (answer: string) => {
-//     if (!question) return;
-//     setSelected(answer);
-//     setDisabled(true);
-
-//     setTimeout(async () => {
-//       const next = await sendAnswer(question.session_id, answer);
-//       setQuestion(next);
-//       setSelected(null);
-//       setDisabled(false);
-//     }, 1500);
-//   };
-
-//   useEffect(() => {
-//     loadStart();
-//   }, []);
-
-//   return (
-//     <div className="min-h-screen bg-gradient-to-br from-purple-100 to-indigo-200 p-6">
-//       <h1 className="text-3xl font-bold text-center mb-6">🧠 Путь Знаний</h1>
-//       {question ? (
-//         <QuestionCard
-//           data={question}
-//           onAnswer={handleAnswer}
-//           disabled={disabled}
-//           selected={selected}
-//         />
-//       ) : (
-//         <p className="text-center">Загрузка...</p>
-//       )}
-//     </div>
-//   );
-// }
-
-// export default App;

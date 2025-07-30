@@ -1,3 +1,15 @@
+export type Trait = "Любопытный" | "Безрассудный" | "Точный" | "Забывчивый" | "Поддерживающий";
+
+export type KnowledgeArea = "Физика" | "История" | "Музыка" | "Математика" | "Биология"
+  | "Спорт" | "Кино" | "Животные" | "Литература" | "Технологии" | "Природа" | "Философия";
+
+export interface CrewMember {
+  id: string;
+  name: string;
+  specialty: KnowledgeArea;
+  traits: Trait[];
+}
+
 export interface Question {
   question: string;
   options: string[];
