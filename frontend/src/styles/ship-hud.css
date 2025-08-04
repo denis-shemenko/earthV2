@@ -1,6 +1,6 @@
 .ship-hud {
     position: absolute;
-    top: 10px;
+    top: 50px;
     left: 10px;
     padding: 12px 16px;
     background-color: rgba(0, 0, 0, 0.7);

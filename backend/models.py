@@ -2,7 +2,6 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 class FirstQuestionRequest(BaseModel):
-    session_id: str
     topic: str
 
 class QuestionRequest(BaseModel):

@@ -37,15 +37,17 @@ def start_session():
 
 @app.post("/first-question", response_model=QuestionResponse)
 def create_first_question(req: FirstQuestionRequest):
+    session_id = create_session()
     q = generate_first_question(req.topic)
+
     store_first_question(
-        session_id=req.session_id,
+        session_id=session_id,
         question_text=q["question"],
         answers=q["options"]
     )
-    #return QuestionResponse(**q, session_id=req.session_id)
+
     return {
-        "session_id": req.session_id,
+        "session_id": session_id,
         "ship_event": None,
         "ship_status": None,
         "question": q["question"],

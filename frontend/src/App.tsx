@@ -1,7 +1,8 @@
 import { useState } from "react";
-import GreetingsScreen from "./components/GreetingsScreen";
+import GreetingsScreen from "@/components/GreetingsScreen";
 import CrewSelectionScreen from "@/components/CrewSelectionScreen";
 import MissionSelectionScreen from "@/components/MissionSelectionScreen";
+import GraphView from "@/components/GraphView";
 import type { CrewMember } from "@/types";
 
 export default function App() {
@@ -22,7 +23,7 @@ export default function App() {
       ) : !missionTopic ? (
         <MissionSelectionScreen onMissionSelected={setMissionTopic} captain={captainName} crew={crew} />
       ) : (
-        <div>{/* Step 4 - Arrival at Planet (Trivia Question) */}</div>
+        <GraphView firstTopic={missionTopic} />
       )}
     </>
   );

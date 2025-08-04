@@ -14,7 +14,11 @@ type FloatingScore = {
     y: number;
 };
 
-export default function GraphView() {
+interface GraphViewProps {
+    firstTopic: string;
+}
+
+export default function GraphView({ firstTopic }: GraphViewProps) {
     const [stars, setStars] = useState<number[]>([]);
     const [graphData, setGraphData] = useState<KnowledgeGraph | null>(null);
     const [sessionId, setSessionId] = useState<string>("");
@@ -33,17 +37,7 @@ export default function GraphView() {
         const bonus = Math.max(0, 60 - timeTaken * 2); // До 50 бонусных очков за скорость
         setQuestionStartTime(null); // сброс
 
-        // Стартовая тема
-        if (node.type === "answer" && node.topic) {
-            const topic = node.label;
-            postFirstQuestion(sessionId, topic)
-                .then(() => {
-                    // перезагрузить граф
-                    getGraphBySession(sessionId).then(setGraphData);
-                    setQuestionStartTime(Date.now());
-                });
-            return;
-        } else if (node.type === "answer") {
+        if (node.type === "answer") {
             const total = node.correct ? Math.floor(baseScore + bonus) : -baseScore;
             const coords = fgRef.current?.graph2ScreenCoords(node.x, node.y);
             //console.log("Getting node coords: x=" + node.x + " y=" + node.y);
@@ -86,7 +80,15 @@ export default function GraphView() {
         const starCount = Math.floor(Math.random() * 70) + 30;
         setStars(Array.from({ length: starCount }, (_, i) => i));
 
-        fetchStart().then(({ session_id }) => setSessionId(session_id));
+        //fetchStart().then(({ session_id }) => setSessionId(session_id));
+        postFirstQuestion(firstTopic)
+            .then(({ session_id }) => {
+                setSessionId(session_id);
+
+                // перезагрузить граф
+                // getGraphBySession(session_id).then(setGraphData);
+                setQuestionStartTime(Date.now());
+            });
     }, []);
 
     // 2. Fetch graph when sessionId is available

@@ -10,12 +10,8 @@ export const fetchStart = async (): Promise<Question> => {
   return res.data;
 };
 
-export const postFirstQuestion = async (
-  session_id: string,
-  topic: string,
-): Promise<Question> => {
+export const postFirstQuestion = async (topic: string): Promise<Question> => {
   const res = await API.post<Question>("/first-question", {
-    session_id,
     topic
   });
   return res.data;
