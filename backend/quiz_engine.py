@@ -34,23 +34,27 @@ parser = JsonOutputParser()
 
 # Шаг 1: Генерация нового связанного топика
 next_topic_prompt = PromptTemplate(
-    input_variables=["previous_answer", "avoid"],
+    input_variables=["previous_answer", "possible_topics", "avoid"],
     template="""
 Ты создаешь уникальный путь знаний для игрока. У игрока предыдущий ответ был: "{previous_answer}".
-Твоя задача — придумать одну новую, логически связанную, но при этом из другой области знаний, 
-или которая требует креативного, ассоциативного прыжка.
+Твоя задача — придумать от одной до четырех новых тем, логически связанных, 
+но при этом из другой области знаний, или которая требует креативного, ассоциативного прыжка.
 Это должен быть не очевидный, но интересный прыжок между темами, для расширения кругозора игрока.
+Список возможных тем на данный момент ограничен следующим списком: {possible_topics}
 
 Примеры таких прыжков:
 - Space -> Greek Mythology (через имена планет)
 - История -> Кулинария (через традиционные блюда эры)
+- Biology -> Music (through natural rhythms and patterns)
+- Technology -> Art (through creative applications)
 
 Избегай повторного использования этих тем: {avoid}.
 
-Верни только одну тему без пояснений.
+Верни от одной до четырех (случайно выбери как много) тем, каждую на новой строке, без пояснений.
 """
 )
 
+# Сборка цепочки для генерации тем
 next_topic_chain = next_topic_prompt | llmGemini
 
 # Шаблон промпта
@@ -92,23 +96,7 @@ next_question_prompt = PromptTemplate(
     template=next_question_template
 )
 
-# English without OPTIONS!
-# prompt = PromptTemplate(
-#     input_variables=["topic"],
-#     template=(
-#         "You are an AI-powered quiz generator for a curiosity-driven game.\n"
-#         "Generate a single multiple-choice question on the topic: '{topic}'.\n"
-#         "Return exactly 4 answer options — one correct and three plausible but incorrect ones.\n"
-#         "Respond ONLY in strict JSON format with the following fields:\n"
-#         "  - question: string\n"
-#         "  - options: array of 4 strings\n"
-#         "  - correct_answer: string\n"
-#         "Do not include any explanations or extra text."
-#     )
-# )
-
-# Сборка цепочки
-#next_question_chain = next_question_prompt | llmGemini | parser 
+# Сборка цепочки для генерации вопросов
 next_question_chain = (
     next_question_prompt 
     | llmGemini 
@@ -129,52 +117,93 @@ def log_next_question_prompt(x):
 
 #set_verbose(True)
 
-question_generator_chain = (
-    RunnablePassthrough.assign(
-        next_topic=lambda x: next_topic_chain.invoke({
-            "previous_answer": x["previous_answer"],
-            "avoid": x["avoid"]
-        }).content
-    )
-    #| log_next_topic
-    #| log_next_question_prompt
-    | RunnablePassthrough.assign(
-        question_json=lambda x: next_question_chain.invoke({
-            "next_topic": x["next_topic"],
-            "avoid": x["avoid"]
-        })
-    )
-)
-
-# Основная функция генерации
-def generate_question(topic: str, previous_answers: List[str]) -> dict:
+# Функция генерации новых тем (Шаг 1)
+def generate_next_topics(previous_answer: str, possible_topics: List[str], previous_answers: List[str]) -> List[str]:
+    """
+    Generate 1-4 new topics based on the player's previous answer.
+    This is Step 1 of the two-step process.
+    """
     try:
-      result = question_generator_chain.invoke({
-          "previous_answer": topic,
-          "avoid": ", ".join(previous_answers)
-      })
-      #result = question_generator_chain.invoke({"previous_answer": topic})
-      return result["question_json"]
+        result = next_topic_chain.invoke({
+            "previous_answer": previous_answer,
+            "possible_topics": ", ".join(possible_topics),
+            "avoid": ", ".join(previous_answers)
+        })
+        
+        # Parse the response to get individual topics
+        topics_text = result.content.strip()
+        topics = [topic.strip() for topic in topics_text.split('\n') if topic.strip()]
+        
+        return topics
+    except Exception as e:
+        print(f"[AI error] {e}")
+        return ["General Knowledge", "Science", "History", "Technology"]
+
+# Функция генерации вопроса по выбранной теме (Шаг 2)
+def generate_question_for_topic(chosen_topic: str, previous_answers: List[str]) -> dict:
+    """
+    Generate a question for the chosen topic.
+    This is Step 2 of the two-step process.
+    """
+    try:
+        result = next_question_chain.invoke({
+            "next_topic": chosen_topic,
+            "avoid": ", ".join(previous_answers)
+        })
+        return result
+    except Exception as e:
+        print(f"[AI error] {e}")
+        return {
+            "question": f"Что-то пошло не так при генерации вопроса по теме '{chosen_topic}'.",
+            "options": [
+                {"text": "A", "isCorrect": True},
+                {"text": "B", "isCorrect": False},
+                {"text": "C", "isCorrect": False},
+                {"text": "D", "isCorrect": False}
+            ]
+        }
+
+# Основная функция генерации (legacy - теперь используйте две отдельные функции выше)
+def generate_question(topic: str, previous_answers: List[str]) -> dict:
+    """
+    Legacy function - use generate_next_topics() and generate_question_for_topic() instead
+    """
+    try:
+        # First generate topics
+        topics = generate_next_topics(topic, [], previous_answers)
+        if topics:
+            # Then generate question for the first topic
+            return generate_question_for_topic(topics[0], previous_answers)
+        else:
+            raise Exception("No topics generated")
     except Exception as e:
         print(f"[AI error] {e}")
         return {
             "question": f"Что-то пошло не так при генерации вопроса по теме '{topic}'.",
-            "options": ["A", "B", "C", "D"],
-            "correct_answer": "A"
+            "options": [
+                {"text": "A", "isCorrect": True},
+                {"text": "B", "isCorrect": False},
+                {"text": "C", "isCorrect": False},
+                {"text": "D", "isCorrect": False}
+            ]
         }
 
 # Функция генерации первого вопроса по топику
 def generate_first_question(topic: str) -> dict:
     try:
-      result = next_question_chain.invoke({
+        result = next_question_chain.invoke({
             "next_topic": topic,
             "avoid": ""
         })
-      return result
+        return result
     except Exception as e:
         print(f"[AI error] {e}")
         return {
             "question": f"Что-то пошло не так при генерации вопроса по теме '{topic}'.",
-            "options": ["A", "B", "C", "D"],
-            "correct_answer": "A"
+            "options": [
+                {"text": "A", "isCorrect": True},
+                {"text": "B", "isCorrect": False},
+                {"text": "C", "isCorrect": False},
+                {"text": "D", "isCorrect": False}
+            ]
         }

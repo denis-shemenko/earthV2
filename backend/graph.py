@@ -46,6 +46,31 @@ def _store_first_question(tx, session_id, question_text, answers):
         )
     """, session_id=session_id, question=question_text, answers=answers)
 
+#TODO!!!
+def store_selected_answer_and_next_topics(selected_answer_text: str, next_topics: List[str]):
+    with driver.session() as session:
+        session.execute_write(
+            _store_selected_answer_and_next_topics,
+            selected_answer_text, 
+            next_topics)
+
+def _store_selected_answer_and_next_topics(tx, selected_answer_text, next_topics):    
+    tx.run("""
+        MATCH (q1:Question {text: $question_text})
+        MATCH (a:Answer {text: $selected_answer})
+        MERGE (q1)-[:SELECTED]->(a)
+
+        MERGE (q2:Question {text: $next_question})
+        MERGE (a)-[:NEXT]->(q2)
+
+        FOREACH (opt IN $answers |
+            MERGE (ans:Answer {text: opt.text})
+            SET ans.correct = opt.isCorrect
+            MERGE (q2)-[:HAS_OPTION]->(ans)
+        )
+    """, selected_answer=selected_answer_text,
+         next_topics=next_topics)
+
 def store_selected_answer_and_next(question_text: str, selected_answer_text: str, next_question_text: str, answer_options: List[QuestionOption]):
     with driver.session() as session:
         session.execute_write(
