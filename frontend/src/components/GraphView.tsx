@@ -185,7 +185,7 @@ export default function GraphView({ firstTopic, crew }: GraphViewProps) {
                 <div key={i} className="star absolute"></div>
             ))}
             <div className="absolute top-4 left-4 text-white z-50 bg-black/50 px-4 py-2 rounded-lg">
-                <div>Очки: {score}</div>
+                {/* <div>Очки: {score}</div> */}
                 {questionStartTime && <div>⏱ {elapsedTime} сек.</div>}
             </div>
             {shipStatus && <ShipHud status={shipStatus} />}
