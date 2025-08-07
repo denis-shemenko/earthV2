@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import ForceGraph2D from "react-force-graph-2d";
-import type { GraphNode, GraphLink, KnowledgeGraph } from "../types";
+import type { GraphNode, GraphLink, KnowledgeGraph, CrewMember } from "../types";
 import { fetchStart, getGraphBySession, postFirstQuestion } from "../api";
 import type { ShipStatus } from "./ShipHud";
+import CrewAdviceBox from './CrewAdviceBox';
 import ShipHud from "./ShipHud";
 
 //const SESSION_ID = "d5657a67-943f-41f4-8a73-202c03ac93c4"; // потом возьмем из глобального состояния или storage
@@ -16,9 +17,10 @@ type FloatingScore = {
 
 interface GraphViewProps {
     firstTopic: string;
+    crew: CrewMember[];
 }
 
-export default function GraphView({ firstTopic }: GraphViewProps) {
+export default function GraphView({ firstTopic, crew }: GraphViewProps) {
     const [stars, setStars] = useState<number[]>([]);
     const [graphData, setGraphData] = useState<KnowledgeGraph | null>(null);
     const [sessionId, setSessionId] = useState<string>("");
@@ -245,6 +247,7 @@ export default function GraphView({ firstTopic }: GraphViewProps) {
                     {score.value}
                 </div>
             ))}
+            <CrewAdviceBox crew={crew} question={""} />
         </div>
     );
 }

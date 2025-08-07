@@ -23,7 +23,7 @@ export default function App() {
       ) : !missionTopic ? (
         <MissionSelectionScreen onMissionSelected={setMissionTopic} captain={captainName} crew={crew} />
       ) : (
-        <GraphView firstTopic={missionTopic} />
+        <GraphView firstTopic={missionTopic} crew={crew} />
       )}
     </>
   );
